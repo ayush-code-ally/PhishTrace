@@ -3,345 +3,170 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PhishTrace — ATO Attack Simulator & Containment Monitor</title>
+  <title>Northfield University — Student Portal</title>
   <style>
-    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
-    body { margin: 0; padding: 20px; background: #0f172a; color: #f8fafc; }
-    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 14px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-    h1 { margin: 0; font-size: 1.4rem; color: #38bdf8; }
-    .mode-box { display: flex; align-items: center; gap: 10px; background: #1e293b; padding: 8px 14px; border-radius: 8px; border: 1px solid #334155; font-size: 0.85rem; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
-    .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 18px; }
-    .card h2 { margin-top: 0; font-size: 1.1rem; border-bottom: 1px solid #334155; padding-bottom: 10px; color: #e2e8f0; }
-    .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
-    button { cursor: pointer; border: none; border-radius: 6px; padding: 10px 12px; font-weight: 600; font-size: 0.85rem; transition: opacity 0.15s; }
-    button:hover { opacity: 0.9; }
-    .btn-green { background: #16a34a; color: white; }
-    .btn-yellow { background: #ca8a04; color: white; }
-    .btn-red { background: #dc2626; color: white; }
-    .btn-gray { background: #475569; color: white; }
-    .btn-primary { background: #0284c7; color: white; width: 100%; padding: 12px; font-size: 0.95rem; margin-top: 8px; }
-    .btn-reset { background: transparent; border: 1px solid #64748b; color: #cbd5e1; padding: 6px 10px; font-size: 0.78rem; }
-    label { display: block; font-size: 0.8rem; color: #94a3b8; margin-top: 10px; margin-bottom: 4px; }
-    input { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc; font-size: 0.9rem; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .status-banner { padding: 14px; border-radius: 8px; font-weight: 700; font-size: 1.1rem; text-align: center; margin-bottom: 14px; letter-spacing: 0.5px; }
-    .status-ACTIVE { background: #14532d; color: #86efac; border: 1px solid #22c55e; }
-    .status-MFA_REQUIRED { background: #713f12; color: #fde047; border: 1px solid #eab308; }
-    .status-QUARANTINED { background: #7f1d1d; color: #fca5a5; border: 1px solid #ef4444; }
-    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-    .metric-box { background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155; }
-    .metric-label { font-size: 0.75rem; color: #94a3b8; }
-    .metric-val { font-size: 1.25rem; font-weight: 700; margin-top: 4px; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-bottom: 14px; }
-    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #334155; }
-    th { color: #94a3b8; }
-    pre { background: #0f172a; border: 1px solid #334155; padding: 12px; border-radius: 8px; font-size: 0.8rem; overflow-x: auto; color: #38bdf8; max-height: 190px; }
-    .badge { padding: 2px 7px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
-    .badge-true { background: #14532d; color: #86efac; }
-    .badge-false { background: #7f1d1d; color: #fca5a5; }
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    body { margin: 0; background: #f1f5f9; color: #1e293b; min-height: 100vh; display: flex; flex-direction: column; }
+    .topbar { background: #1e3a8a; color: #fff; padding: 14px 28px; display: flex; align-items: center; gap: 12px; }
+    .crest { width: 36px; height: 36px; border-radius: 50%; background: #fbbf24; color: #1e3a8a; font-weight: 800; display: grid; place-items: center; }
+    .topbar h1 { font-size: 1.1rem; margin: 0; font-weight: 600; }
+    main { flex: 1; display: grid; place-items: center; padding: 24px; }
+    .panel { width: 100%; max-width: 400px; background: #fff; border-radius: 10px; box-shadow: 0 4px 18px rgba(15,23,42,.1); padding: 28px; }
+    .panel h2 { margin: 0 0 4px; font-size: 1.3rem; }
+    .sub { margin: 0 0 18px; color: #64748b; font-size: .88rem; }
+    label { display: block; font-size: .82rem; font-weight: 600; margin: 12px 0 5px; }
+    input { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: .95rem; }
+    input:focus { outline: 2px solid #3b82f6; border-color: #3b82f6; }
+    button { cursor: pointer; border: 0; border-radius: 6px; padding: 11px; font-weight: 600; font-size: .95rem; }
+    .primary { width: 100%; margin-top: 18px; background: #1e3a8a; color: #fff; }
+    .primary:disabled { opacity: .6; cursor: not-allowed; }
+    .msg { margin-top: 14px; padding: 10px 12px; border-radius: 6px; font-size: .88rem; display: none; }
+    .msg.err { display: block; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .msg.warn { display: block; background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    .msg.ok { display: block; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+    .msg.lock { display: block; background: #7f1d1d; color: #fff; border: 1px solid #450a0a; font-weight: 600; }
+    .corr { display: block; margin-top: 4px; font-size: .75rem; opacity: .75; font-family: ui-monospace, monospace; }
+    .dash { display: none; }
+    .dash pre { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; font-size: .8rem; overflow-x: auto; }
+    .ghost { background: #e2e8f0; color: #1e293b; margin-top: 10px; width: 100%; }
+    .admin { max-width: 400px; width: 100%; margin-top: 18px; background: #fff; border: 1px dashed #94a3b8; border-radius: 10px; padding: 14px 18px; font-size: .85rem; }
+    .admin summary { cursor: pointer; font-weight: 600; color: #475569; }
+    .admin .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .danger { width: 100%; margin-top: 12px; background: #b45309; color: #fff; }
+    footer { text-align: center; font-size: .75rem; color: #94a3b8; padding: 14px; }
   </style>
 </head>
 <body>
+  <div class="topbar"><div class="crest">N</div><h1>Northfield University · Student Portal</h1></div>
 
-  <header>
-    <div>
-      <h1>PhishTrace — ATO Simulation & Security Monitor</h1>
-      <span style="font-size: 0.8rem; color: #94a3b8;">College Portal Account Takeover Detection & Automated Containment</span>
+  <main>
+    <div style="width:100%;max-width:400px">
+      <!-- LOGIN -->
+      <section class="panel" id="loginView">
+        <h2>Sign in</h2>
+        <p class="sub">Use your university username and password.</p>
+        <form id="loginForm" autocomplete="off">
+          <label for="username">Username</label>
+          <input id="username" name="username" required maxlength="64" />
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" required maxlength="128" />
+          <button class="primary" id="loginBtn" type="submit">Sign in</button>
+        </form>
+        <div class="msg" id="loginMsg"></div>
+      </section>
+
+      <!-- AUTHENTICATED VIEW -->
+      <section class="panel dash" id="dashView">
+        <h2>Welcome back</h2>
+        <p class="sub" id="welcome"></p>
+        <button class="primary" id="profileBtn" type="button">Load my profile</button>
+        <pre id="profileOut">—</pre>
+        <button class="ghost" id="logoutBtn" type="button">Sign out</button>
+      </section>
+
+      <!-- ADMIN -->
+      <details class="admin">
+        <summary>Security desk (admin recovery)</summary>
+        <div class="row">
+          <div><label for="adminUser">Username</label><input id="adminUser" value="synthetic_student_01" /></div>
+          <div><label for="adminKey">Admin key</label><input id="adminKey" type="password" /></div>
+        </div>
+        <button class="danger" id="unqBtn" type="button">Unquarantine user</button>
+        <div class="msg" id="adminMsg"></div>
+      </details>
     </div>
-    <div class="mode-box">
-      <label style="margin:0; color:#e2e8f0; cursor:pointer;">
-        <input type="checkbox" id="simMode" checked style="width:auto; margin-right:6px;">
-        Local Simulation Mode (No Backend Needed)
-      </label>
-      <button class="btn-reset" onclick="resetState()">Reset Demo</button>
-    </div>
-  </header>
+  </main>
 
-  <div class="grid">
-    <!-- LEFT PANEL: PORTAL & ATTACK SIMULATOR -->
-    <div class="card">
-      <h2>1. Student Login & Attack Simulator</h2>
-      <p style="font-size: 0.82rem; color: #94a3b8; margin-top: 0;">Select a synthetic test scenario or customize the login payload below:</p>
-
-      <div class="btn-group">
-        <button class="btn-green" onclick="loadScenario('normal')">Test 1: Normal Campus Login</button>
-        <button class="btn-yellow" onclick="loadScenario('stuffing')">Test 2: Credential Stuffing</button>
-        <button class="btn-red" onclick="loadScenario('ato')">Test 3: ATO Impossible Travel</button>
-        <button class="btn-gray" onclick="testProtectedRoute()">Test 4: Access /profile</button>
-      </div>
-
-      <div class="row">
-        <div>
-          <label>User ID</label>
-          <input type="text" id="userId" value="stu_01" />
-        </div>
-        <div>
-          <label>IP Address</label>
-          <input type="text" id="ipAddress" value="103.21.124.10" />
-        </div>
-      </div>
-
-      <div class="row">
-        <div>
-          <label>City</label>
-          <input type="text" id="city" value="Bengaluru" />
-        </div>
-        <div>
-          <label>Country Code</label>
-          <input type="text" id="country" value="IN" />
-        </div>
-      </div>
-
-      <div class="row">
-        <div>
-          <label>Device Fingerprint</label>
-          <input type="text" id="device" value="Chrome_Windows_11" />
-        </div>
-        <div>
-          <label>Failed Attempts (Last 10m)</label>
-          <input type="number" id="failedAttempts" value="0" min="0" />
-        </div>
-      </div>
-
-      <label>Event Timestamp (UTC ISO)</label>
-      <input type="text" id="timestamp" value="2026-11-26T10:15:00Z" />
-
-      <button class="btn-primary" onclick="sendLoginEvent()">Send Login Event (POST /events/login)</button>
-    </div>
-
-    <!-- RIGHT PANEL: SECURITY CONTAINMENT MONITOR -->
-    <div class="card">
-      <h2>2. Live Security Containment Monitor</h2>
-
-      <div id="statusBanner" class="status-banner status-ACTIVE">
-        ACCOUNT STATUS: ACTIVE
-      </div>
-
-      <div class="metrics">
-        <div class="metric-box">
-          <div class="metric-label">CALCULATED RISK SCORE</div>
-          <div class="metric-val" id="riskScoreVal">0 / 100</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">ENFORCED DECISION</div>
-          <div class="metric-val" id="decisionVal">ALLOW</div>
-        </div>
-      </div>
-
-      <div style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 6px; font-weight: 600;">ACTIVE FIRESTORE SESSIONS (stu_01)</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Session ID</th>
-            <th>Origin IP</th>
-            <th>Active</th>
-            <th>Revoked Reason</th>
-          </tr>
-        </thead>
-        <tbody id="sessionsTable">
-          <tr>
-            <td>sess_901</td>
-            <td>103.21.124.10</td>
-            <td><span class="badge badge-true">true</span></td>
-            <td>—</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 6px; font-weight: 600;">API / DETECTION AUDIT OUTPUT</div>
-      <pre id="jsonOutput">{
-  "message": "Ready. Click any test scenario on the left and press Send Login Event."
-}</pre>
-    </div>
-  </div>
+  <footer>Academic project — synthetic accounts only. © Northfield University (fictional)</footer>
 
   <script>
-    const API_BASE = "http://localhost:8000";
+    // Served from FastAPI at http://localhost:8000/ -> same origin. If opened as file://, fall back.
+    const API = location.protocol === "file:" ? "http://localhost:8000" : "";
+    let session = null; // {user, token}
 
-    // Baseline state matching Firestore schema
-    let userState = {
-      user_id: "stu_01",
-      status: "ACTIVE",
-      last_login_ip: "103.21.124.10",
-      last_login_city: "Bengaluru",
-      last_login_country: "IN",
-      last_login_timestamp: "2026-11-26T10:15:00Z",
-      known_devices: ["Chrome_Windows_11", "Safari_iPhone"]
-    };
+    const $ = (id) => document.getElementById(id);
 
-    let sessions = [
-      { session_id: "sess_901", ip_address: "103.21.124.10", is_active: true, revoked_reason: "—" }
-    ];
-
-    function loadScenario(type) {
-      if (type === "normal") {
-        document.getElementById("userId").value = "stu_01";
-        document.getElementById("ipAddress").value = "103.21.124.10";
-        document.getElementById("city").value = "Bengaluru";
-        document.getElementById("country").value = "IN";
-        document.getElementById("device").value = "Chrome_Windows_11";
-        document.getElementById("failedAttempts").value = 0;
-        document.getElementById("timestamp").value = "2026-11-26T10:15:00Z";
-      } else if (type === "stuffing") {
-        document.getElementById("userId").value = "stu_01";
-        document.getElementById("ipAddress").value = "103.21.124.10";
-        document.getElementById("city").value = "Bengaluru";
-        document.getElementById("country").value = "IN";
-        document.getElementById("device").value = "Chrome_Windows_11";
-        document.getElementById("failedAttempts").value = 6;
-        document.getElementById("timestamp").value = "2026-11-26T10:18:00Z";
-      } else if (type === "ato") {
-        document.getElementById("userId").value = "stu_01";
-        document.getElementById("ipAddress").value = "185.220.101.4";
-        document.getElementById("city").value = "Frankfurt";
-        document.getElementById("country").value = "DE";
-        document.getElementById("device").value = "Tor_Linux_Unknown";
-        document.getElementById("failedAttempts").value = 0;
-        document.getElementById("timestamp").value = "2026-11-26T10:23:00Z";
+    function show(el, cls, text, corr) {
+      el.className = "msg " + cls;
+      el.textContent = text;
+      if (corr) {
+        const s = document.createElement("span");
+        s.className = "corr";
+        s.textContent = "Reference: " + corr;
+        el.appendChild(s);
       }
     }
 
-    // Exact replica of detector.py risk-scoring rules for local simulation
-    function evaluateLocally(payload) {
-      let riskScore = 0;
-      let triggeredRules = [];
+    // The ONLY data the client sends for login: username + password.
+    $("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const username = $("username").value.trim();
+      const password = $("password").value;
+      $("loginBtn").disabled = true;
+      try {
+        const res = await fetch(`${API}/events/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        $("password").value = "";
 
-      const prevTime = new Date(userState.last_login_timestamp).getTime();
-      const currTime = new Date(payload.timestamp).getTime();
-      const hoursDiff = Math.abs(currTime - prevTime) / (1000 * 60 * 60);
-
-      // Rule 1: Impossible Travel (+50)
-      if (payload.country !== userState.last_login_country && hoursDiff < 2) {
-        riskScore += 50;
-        triggeredRules.push("IMPOSSIBLE_TRAVEL (+50)");
-      }
-
-      // Rule 2: Credential Stuffing (+40)
-      if (payload.failed_attempts_10m >= 5) {
-        riskScore += 40;
-        triggeredRules.push("CREDENTIAL_STUFFING (+40)");
-      }
-
-      // Rule 3: New Device & IP (+25)
-      if (!userState.known_devices.includes(payload.device_fingerprint) && payload.ip_address !== userState.last_login_ip) {
-        riskScore += 25;
-        triggeredRules.push("NEW_DEVICE_AND_IP (+25)");
-      }
-
-      let decision = "ALLOW";
-      if (riskScore >= 70) {
-        decision = "BLOCK_AND_QUARANTINE";
-        userState.status = "QUARANTINED";
-        sessions = sessions.map(s => ({ ...s, is_active: false, revoked_reason: "ATO_CONTAINMENT" }));
-      } else if (riskScore >= 40) {
-        decision = "CHALLENGE_MFA";
-        if (userState.status !== "QUARANTINED") userState.status = "MFA_REQUIRED";
-      } else {
-        if (userState.status !== "QUARANTINED") userState.status = "ACTIVE";
-      }
-
-      return {
-        user_id: payload.user_id,
-        risk_score: riskScore,
-        decision: decision,
-        account_status: userState.status,
-        triggered_rules: triggeredRules,
-        sessions_revoked: userState.status === "QUARANTINED"
-      };
-    }
-
-    async function sendLoginEvent() {
-      const payload = {
-        user_id: document.getElementById("userId").value.trim(),
-        ip_address: document.getElementById("ipAddress").value.trim(),
-        city: document.getElementById("city").value.trim(),
-        country: document.getElementById("country").value.trim(),
-        device_fingerprint: document.getElementById("device").value.trim(),
-        failed_attempts_10m: parseInt(document.getElementById("failedAttempts").value, 10) || 0,
-        timestamp: document.getElementById("timestamp").value.trim()
-      };
-
-      const isSim = document.getElementById("simMode").checked;
-
-      if (isSim) {
-        const result = evaluateLocally(payload);
-        updateUI(result);
-      } else {
-        try {
-          const res = await fetch(`${API_BASE}/events/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          });
-          const data = await res.json();
-          if (data.account_status) userState.status = data.account_status;
-          if (userState.status === "QUARANTINED") {
-            sessions = sessions.map(s => ({ ...s, is_active: false, revoked_reason: "ATO_CONTAINMENT" }));
+        if (res.ok) {
+          session = { user: data.user_id, token: data.session_token };
+          $("loginView").style.display = "none";
+          $("dashView").style.display = "block";
+          $("welcome").textContent = `Signed in as ${data.user_id}`;
+          $("profileOut").textContent = "—";
+        } else if (res.status === 403) {
+          show($("loginMsg"), "lock", data.detail || "Account quarantined.", data.correlation_id);
+        } else if (res.status === 401) {
+          let t = data.detail || "Invalid username or password";
+          if (typeof data.attempts_remaining === "number") {
+            t += ` (${data.attempts_remaining} attempt${data.attempts_remaining === 1 ? "" : "s"} remaining)`;
           }
-          updateUI(data);
-        } catch (err) {
-          document.getElementById("jsonOutput").textContent = JSON.stringify({
-            error: "Could not reach FastAPI backend at " + API_BASE,
-            hint: "Check 'Local Simulation Mode' at the top right to test without the backend."
-          }, null, 2);
+          show($("loginMsg"), data.attempts_remaining <= 2 ? "warn" : "err", t, data.correlation_id);
+        } else {
+          show($("loginMsg"), "err", data.detail || "Unexpected error", data.correlation_id);
         }
+      } catch (err) {
+        show($("loginMsg"), "err", "Cannot reach the server. Is the API running on port 8000?");
+      } finally {
+        $("loginBtn").disabled = false;
       }
-    }
+    });
 
-    async function testProtectedRoute() {
-      const isSim = document.getElementById("simMode").checked;
-      if (isSim) {
-        const blocked = userState.status === "QUARANTINED";
-        document.getElementById("jsonOutput").textContent = JSON.stringify({
-          endpoint: "GET /users/stu_01/profile",
-          http_status: blocked ? 403 : 200,
-          result: blocked ? "FORBIDDEN — Account is QUARANTINED. Access denied." : "OK — Profile data returned."
-        }, null, 2);
-      } else {
-        try {
-          const res = await fetch(`${API_BASE}/users/stu_01/profile`);
-          const data = await res.json();
-          document.getElementById("jsonOutput").textContent = JSON.stringify({
-            endpoint: "GET /users/stu_01/profile",
-            http_status: res.status,
-            response: data
-          }, null, 2);
-        } catch (err) {
-          document.getElementById("jsonOutput").textContent = JSON.stringify({ error: err.message }, null, 2);
-        }
+    $("profileBtn").addEventListener("click", async () => {
+      if (!session) return;
+      const res = await fetch(`${API}/users/${encodeURIComponent(session.user)}/profile`, {
+        headers: { Authorization: `Bearer ${session.token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      $("profileOut").textContent = `HTTP ${res.status}\n` + JSON.stringify(data, null, 2);
+    });
+
+    $("logoutBtn").addEventListener("click", () => {
+      session = null;
+      $("dashView").style.display = "none";
+      $("loginView").style.display = "block";
+      $("loginMsg").className = "msg";
+    });
+
+    // Admin recovery so reviewers can reset the demo.
+    $("unqBtn").addEventListener("click", async () => {
+      const user = $("adminUser").value.trim();
+      try {
+        const res = await fetch(`${API}/users/${encodeURIComponent(user)}/unquarantine`, {
+          method: "POST",
+          headers: { "X-Admin-Key": $("adminKey").value },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) show($("adminMsg"), "ok", `${data.user_id} restored to ${data.account_status}.`, data.correlation_id);
+        else show($("adminMsg"), "err", data.detail || "Failed", data.correlation_id);
+      } catch (err) {
+        show($("adminMsg"), "err", "Cannot reach the server.");
       }
-    }
-
-    function updateUI(result) {
-      const banner = document.getElementById("statusBanner");
-      const status = result.account_status || userState.status;
-      banner.className = `status-banner status-${status}`;
-      banner.textContent = `ACCOUNT STATUS: ${status}`;
-
-      document.getElementById("riskScoreVal").textContent = `${result.risk_score ?? 0} / 100`;
-      document.getElementById("decisionVal").textContent = result.decision || "ALLOW";
-
-      const tbody = document.getElementById("sessionsTable");
-      tbody.innerHTML = sessions.map(s => `
-        <tr>
-          <td>${s.session_id}</td>
-          <td>${s.ip_address}</td>
-          <td><span class="badge badge-${s.is_active}">${s.is_active}</span></td>
-          <td>${s.revoked_reason}</td>
-        </tr>
-      `).join("");
-
-      document.getElementById("jsonOutput").textContent = JSON.stringify(result, null, 2);
-    }
-
-    function resetState() {
-      userState.status = "ACTIVE";
-      sessions = [{ session_id: "sess_901", ip_address: "103.21.124.10", is_active: true, revoked_reason: "—" }];
-      loadScenario("normal");
-      updateUI({ risk_score: 0, decision: "ALLOW", account_status: "ACTIVE", message: "Demo state reset to ACTIVE." });
-    }
+    });
   </script>
 </body>
 </html>
