@@ -19,17 +19,28 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Header, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from google.cloud import firestore, pubsub_v1
 from pydantic import BaseModel, ConfigDict, Field
 
+# Secrets come from .env (git-ignored), never from source code.
+load_dotenv(Path(__file__).parent / ".env")
+
 PROJECT_ID = "phishtrace-sandbox-team2"
 TOPIC_ID = "security-alerts"
 MAX_FAILS = 5
 PBKDF2_ROUNDS = 200_000  # keep identical to seed.py
-ADMIN_KEY = os.environ.get("ADMIN_KEY", "phishtrace-admin-demo")
+
+# F-07 fix: fail CLOSED. No default key exists, so a missing .env can never
+# leave the admin endpoint protected by a value that is visible in the repo.
+ADMIN_KEY = os.environ.get("ADMIN_KEY", "")
+if len(ADMIN_KEY) < 16:
+    raise RuntimeError("ADMIN_KEY missing or shorter than 16 chars. Copy .env.example to .env and set it.")
+ENABLE_TEST_ROUTES = os.environ.get("ENABLE_TEST_ROUTES") == "1"
 AUDIT_FILE = Path(__file__).parent / "audit.log.jsonl"
 INDEX_FILE = Path(__file__).parent / "index.html"
 
@@ -115,6 +126,19 @@ class LoginRequest(BaseModel):
 
 
 # ---------------------------------------------------------------- errors
+@app.exception_handler(RequestValidationError)
+async def validation_handler(request: Request, exc: RequestValidationError):
+    """F-06 fix: FastAPI's default 422 echoes the submitted value ("input") back
+    and nothing is logged. Return only WHICH fields failed, never their values,
+    and write an audit record with a correlation ID (T05)."""
+    corr_id = new_corr_id()
+    fields = sorted({safe(".".join(str(p) for p in e["loc"][1:]) or "body") for e in exc.errors()})
+    audit(corr_id, "REQUEST_VALIDATION", "INVALID_INPUT", ip=client_ip(request),
+          path=request.url.path, fields=",".join(fields))
+    return JSONResponse(status_code=422, content={
+        "detail": "Invalid request", "fields": fields, "correlation_id": corr_id})
+
+
 @app.exception_handler(Exception)
 async def safe_exception_handler(request: Request, exc: Exception):
     corr_id = new_corr_id()
@@ -173,7 +197,10 @@ def login(body: LoginRequest, request: Request):
     # plus a dummy hash so response timing is similar.
     if not doc.exists:
         hash_password(body.password, _DUMMY_SALT)
-        audit(corr_id, "LOGIN", "USER_NOT_FOUND", user_id=uid, ip=ip)
+        # Log a short hash, not the raw string: users sometimes type their
+        # password into the username box, and that must never reach the log.
+        masked = "unknown-" + hashlib.sha256(uid.encode()).hexdigest()[:8]
+        audit(corr_id, "LOGIN", "USER_NOT_FOUND", user_id=masked, ip=ip)
         return JSONResponse(status_code=401, content={
             "decision": "DENY", "detail": "Invalid username or password",
             "correlation_id": corr_id})
@@ -230,7 +257,6 @@ def login(body: LoginRequest, request: Request):
     return JSONResponse(status_code=401, content={
         "decision": "DENY", "account_status": "ACTIVE",
         "detail": "Invalid username or password",
-        "attempts_remaining": MAX_FAILS - fails,
         "correlation_id": corr_id})
 
 
@@ -271,7 +297,8 @@ def unquarantine(user_id: str, request: Request, x_admin_key: Optional[str] = He
     corr_id = new_corr_id()
     ip = client_ip(request)
 
-    if not x_admin_key or not hmac.compare_digest(x_admin_key, ADMIN_KEY):
+    # bytes comparison: a non-ASCII header must not raise TypeError
+    if not x_admin_key or not hmac.compare_digest(x_admin_key.encode(), ADMIN_KEY.encode()):
         audit(corr_id, "ADMIN_RECOVERY", "DENIED_BAD_KEY", user_id=user_id, ip=ip)
         return JSONResponse(status_code=401, content={"detail": "Invalid admin key",
                                                        "correlation_id": corr_id})
@@ -286,7 +313,11 @@ def unquarantine(user_id: str, request: Request, x_admin_key: Optional[str] = He
                 "session_token_hash": None})
     audit(corr_id, "ADMIN_RECOVERY", "RESTORED_ACTIVE", user_id=user_id, ip=ip)
     return {"user_id": user_id, "account_status": "ACTIVE", "correlation_id": corr_id}
-@app.get("/api/crash")
-async def force_crash():
-    # T06: Test-only trigger to prove safe exception handling
-    raise ValueError("Simulated unexpected database failure.")
+
+
+# T06 test-only trigger. NOT registered unless ENABLE_TEST_ROUTES=1 in .env,
+# so a normal deployment has no route that can be used to crash the service.
+if ENABLE_TEST_ROUTES:
+    @app.get("/api/crash")
+    async def force_crash():
+        raise ValueError("Simulated unexpected database failure.")

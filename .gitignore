@@ -1,7 +1,10 @@
 .venv/
+venv/
 __pycache__/
 .pytest_cache/
 .env
 *.env
 audit.log.jsonl
 evidence/raw/
+desktop.ini
+*.ini

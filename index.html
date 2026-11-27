@@ -121,11 +121,8 @@
         } else if (res.status === 403) {
           show($("loginMsg"), "lock", data.detail || "Account quarantined.", data.correlation_id);
         } else if (res.status === 401) {
-          let t = data.detail || "Invalid username or password";
-          if (typeof data.attempts_remaining === "number") {
-            t += ` (${data.attempts_remaining} attempt${data.attempts_remaining === 1 ? "" : "s"} remaining)`;
-          }
-          show($("loginMsg"), data.attempts_remaining <= 2 ? "warn" : "err", t, data.correlation_id);
+          // Same message for wrong password and unknown user: no hints about which usernames exist.
+          show($("loginMsg"), "err", data.detail || "Invalid username or password", data.correlation_id);
         } else {
           show($("loginMsg"), "err", data.detail || "Unexpected error", data.correlation_id);
         }
