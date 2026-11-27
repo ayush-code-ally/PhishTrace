@@ -1,0 +1,39 @@
+PhishTrace test run - 2026-11-27T14:09:59.629288+00:00 - target http://localhost:8000
+
+=== RUN 1 ===
+T01   PASS  Normal login: no alert, failure counter reset
+        success=200/ALLOW, profile with session token=200, next failure counted as fails=1 (counter was reset), alerts published during T01=0
+T02   PASS  5 wrong passwords -> 4x 401 then 403 QUARANTINED
+        attempts 1-4 status=[401, 401, 401, 401] (server-side fail_count in log=[1, 2, 3, 4]), attempt 5=403/QUARANTINED, correct password afterwards=403
+T03   PASS  Alert published, traceable by alert_id/corr_id
+        alert_id=alrt-3f8786 msg_id=2 corr_id=req-e5ca2a (QUARANTINED record links same alert_id: True); pulled from subscription: FOUND alrt-3f8786
+T04   PASS  Only synthetic_student_01 contained; bad admin key refused
+        student_01 login=403 profile=403; student_02 login=200 profile=200; wrong admin key=401, no admin key=401
+T05   PASS  Audit log supports investigation without credentials
+        23 new audit records; rejected request logged=True; missing required fields=0; response corr_ids not found in log=0; secrets found in log=0
+T06   PASS  Controlled error -> safe 500 + logged correlation ID
+        status=500, body keys=['correlation_id', 'detail'], internals leaked=none, logged SAFE_HANDLED=True
+T07   PASS  No secret in responses, logs, source or git
+        no secret found in responses, audit log, tracked source or git
+T08a  PASS  Admin recovery restores account; login works again
+        admin reset=200/ACTIVE, login afterwards=200, audit RESTORED_ACTIVE=True
+
+=== RUN 2 ===
+T01   PASS  Normal login: no alert, failure counter reset
+        success=200/ALLOW, profile with session token=200, next failure counted as fails=1 (counter was reset), alerts published during T01=0
+T02   PASS  5 wrong passwords -> 4x 401 then 403 QUARANTINED
+        attempts 1-4 status=[401, 401, 401, 401] (server-side fail_count in log=[1, 2, 3, 4]), attempt 5=403/QUARANTINED, correct password afterwards=403
+T03   PASS  Alert published, traceable by alert_id/corr_id
+        alert_id=alrt-d60410 msg_id=3 corr_id=req-5fb6e4 (QUARANTINED record links same alert_id: True); pulled from subscription: FOUND alrt-d60410
+T04   PASS  Only synthetic_student_01 contained; bad admin key refused
+        student_01 login=403 profile=403; student_02 login=200 profile=200; wrong admin key=401, no admin key=401
+T05   PASS  Audit log supports investigation without credentials
+        23 new audit records; rejected request logged=True; missing required fields=0; response corr_ids not found in log=0; secrets found in log=0
+T06   PASS  Controlled error -> safe 500 + logged correlation ID
+        status=500, body keys=['correlation_id', 'detail'], internals leaked=none, logged SAFE_HANDLED=True
+T07   PASS  No secret in responses, logs, source or git
+        no secret found in responses, audit log, tracked source or git
+T08a  PASS  Admin recovery restores account; login works again
+        admin reset=200/ACTIVE, login afterwards=200, audit RESTORED_ACTIVE=True
+
+T08   PASS  Full test set repeated 2x: identical results=True, no failures=True, admin recovery ok every run

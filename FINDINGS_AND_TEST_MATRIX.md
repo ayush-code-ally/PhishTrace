@@ -1,50 +1,55 @@
-﻿# PhishTrace — Findings Register, Test Matrix & Evidence Index
+﻿# PhishTrace: Findings Register, Test Matrix and Evidence Index
 
-## 1. Findings Register (F-01 to F-05)
+Scenario: fictional college portal, synthetic accounts, local Floci emulator only. Finding IDs match the labels used in the baseline screenshots in `evidence/Before/`.
 
-| Finding ID | Vulnerability / Threat | Baseline Behavior (Before) | Remediation / Control (After) | Mapped Test ID | Before Evidence | After Evidence |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **F-01** | No brute-force lockout / credential stuffing protection | `POST /api/login` accepted 7+ consecutive invalid attempts (`"Invalid. Fails: 7"`) without blocking the account | `POST /events/login` increments `fails` in Floci Firestore and enforces `403 Forbidden` (`QUARANTINED`) on the 5th failed attempt | `T02` | `F-01 & F-04.png` | `Screenshot 2026-11-27 001646.png`, `Screenshot 2026-11-27 001710.png` |
-| **F-02** | Broken authentication (client-controlled login bypass) | Sending `"password": "wrong_password"` with `"success": true` bypassed authentication and returned `200 OK` | Server-side PBKDF2 password hash verification in `seed.py` and `main.py`; invalid credentials strictly return `401 Unauthorized` | `T01` | `F02 &F-03.png` | `Screenshot 2026-11-27 003600.png`, `Screenshot 2026-11-27 001710.png` |
-| **F-03** | Plaintext password storage & leakage in responses/logs | `200 OK` response directly leaked `"plaintext_password": "demo_password_123"` in JSON | Passwords hashed via PBKDF2 (`seed.py`); `audit.log.jsonl` logs only metadata (`corr_id`, `outcome`, `risk`) with zero password leaks | `T05`, `T07` | `F02 &F-03.png` | `Screenshot 2026-11-27 002934.png`, `Screenshot 2026-11-27 003041.png` |
-| **F-04** | Verbose error disclosure & missing SOC alerting | Internal failure count exposed in `401` errors; unhandled crashes exposed stack details; no SOC alerts emitted | Safe `500` handler returns generic `"Internal processing error"` with `correlation_id`; Pub/Sub alert (`event=ALERT_PUBLISH`) emitted on quarantine | `T03`, `T06` | `F-01 & F-04.png` | `Screenshot 2026-11-27 001710.png`, `Screenshot 2026-11-27 002751.png` |
-| **F-05** | Unauthenticated admin unlock & lack of account isolation | `POST /api/unquarantine/{username}` allowed any caller without authentication to reset accounts (`"Account reset by anyone"`) | Admin recovery gated behind `ADMIN_TOKEN` (`.env`), rejecting bad keys (`DENIED_BAD_KEY`) while isolating locked accounts from healthy users | `T04`, `T08` | `F-05.png` | `Screenshot 2026-11-27 003404.png`, `Screenshot 2026-11-27 003506.png` |
+## 1. Findings Register
 
----
+Severity scale follows the project guide: **High** = could expose sensitive data, allow unintended execution or permit unauthorised changes in this scenario; **Medium** = materially weakens a control or exposes unnecessary information with limited demonstrated impact; **Low** = limited weakness with small demonstrated impact.
 
-## 2. Verification Test Matrix (T01–T08)
+| ID | Finding | Severity | Impact in this scenario | Baseline evidence (`vulnerable_main.py`) | Remediation (`main.py`) | Retest |
+| --- | --- | --- | --- | --- | --- | --- |
+| F-01 | No brute-force lockout or velocity limit | High | An attacker can guess passwords without limit and take over any student account | `Before/F-01 & F-04.png`: 7+ failures, no lockout (`Invalid. Fails: 7`) | Atomic server-side failure counter in Firestore; 5th failure sets `QUARANTINED`, returns 403, publishes an alert | T02, T03 |
+| F-02 | Plaintext password disclosed in the login response (and stored in plaintext) | High | Any successful login or database read exposes the credential | `Before/F02 &F-03.png`: response contains `plaintext_password` | PBKDF2-SHA256 salted hashes (`seed.py`); responses never contain credentials; constant-time compare | T05, T07 |
+| F-03 | Client-controlled authentication bypass (`"success": true`) | High | Login succeeds with a wrong password: full account takeover with one request | `Before/F02 &F-03.png`: wrong password plus `success:true` returns 200 | Server verifies the password hash; request model forbids extra fields (client cannot send `success`, `failed_attempts`, `risk_score`) | T01, T07 |
+| F-04 | Username enumeration (404 for unknown user, failure counter in 401 detail) | Low | Lets an attacker confirm valid student IDs and see their lockout progress | `Before/F-01 & F-04.png`: `User Not Found` vs `Invalid. Fails: N` | Unknown user and wrong password give the same generic 401; unknown names are logged only as a short hash | T02, T05 |
+| F-05 | Unauthenticated admin endpoint (`/api/unquarantine/{user}`) | High | Anyone can undo containment, defeating the control | `Before/F-05.png`: 200 with no credentials | `X-Admin-Key` required (constant-time compare); bad or missing key returns 401 and is logged `DENIED_BAD_KEY` | T04, T08 |
+| F-06 | Validation errors echo the submitted value; rejected requests are not logged | Low | An over-long or malformed field (including a password typed into the wrong box) is reflected in the response and leaves no audit trail | Found while reviewing the first hardened build. Reproduce on the old `main.py`: `curl -d '{"username":"Canary Pass!99","password":"x"}'` returns `"input":"Canary Pass!99"`, audit log unchanged | Custom `RequestValidationError` handler: returns field names only plus `correlation_id`, writes `INVALID_INPUT` audit record | T05, T07 |
+| F-07 | Admin key defaulted to a value visible in source; test crash route always registered | Medium | If `.env` is not loaded the admin endpoint is protected by a publicly known key; a crash route is reachable in normal runs | Found while reviewing the first hardened build: `os.environ.get("ADMIN_KEY", "phishtrace-admin-demo")`, unconditional `/api/crash` | `.env` loaded with python-dotenv; gateway refuses to start if `ADMIN_KEY` is missing or under 16 characters; `/api/crash` exists only when `ENABLE_TEST_ROUTES=1` | T07, T06 |
 
-| ID | Test Scenario | Expected Result | Baseline Result (Before) | After-Fix Result (After) | Pass/Fail | Evidence Filename |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **T01** | Normal valid student login | `200 OK`, `outcome=SUCCESS`, failure counter reset to `0`, profile accessible | Accepted spoofed `"success": true` with wrong password (`200 OK`) | Valid login succeeds (`corr_id=req-2950b3`), `fails_reset=True`, UI shows *"Signed in as synthetic_student_01"* | **PASS** | `Screenshot 2026-11-27 001710.png`, `Screenshot 2026-11-27 003600.png` |
-| **T02** | Brute-force lockout threshold (5 failed logins) | Attempts 1–4 return `401`; 5th attempt triggers `QUARANTINED` (`risk=85`) and `403 Forbidden` | Allowed 7+ failed logins (`"Invalid. Fails: 7"`) with `401` and no lockout | 5th failed attempt (`corr_id=req-347dad`) returned `403 Forbidden`; UI flashed red: *"Too many failed attempts. Account quarantined."* | **PASS** | `F-01 & F-04.png` (Before), `Screenshot 2026-11-27 001646.png`, `Screenshot 2026-11-27 001710.png` (After) |
-| **T03** | Asynchronous SOC Pub/Sub alert publishing | Quarantining an account publishes an alert message (`alert_id`) to Floci Pub/Sub | No SOC alert published on repeated login failures | `event=ALERT_PUBLISH outcome=PUBLISHED alert_id=alrt-b8522e msg_id=3` logged on 5th failure | **PASS** | `Screenshot 2026-11-27 001710.png`, `Screenshot 2026-11-27 002934.png` |
-| **T04** | Tenant/account isolation & unauthorised unlock protection | Quarantining `synthetic_student_01` does not lock `synthetic_student_02`; invalid admin keys are denied | Any unauthenticated caller could unlock any user via `/api/unquarantine/{username}` | `synthetic_student_02` logged in normally (`200_ACTIVE`); invalid admin keys logged `outcome=DENIED_BAD_KEY` | **PASS** | `F-05.png` (Before), `Screenshot 2026-11-27 003404.png`, `Screenshot 2026-11-27 002934.png` (After) |
-| **T05** | Zero plaintext password leaks in structured audit logs | `audit.log.jsonl` records security events without plaintext passwords or tokens | Plaintext password (`demo_password_123`) exposed in API output | Verified 24 entries in `audit.log.jsonl` contain only `ts`, `corr_id`, `event`, `outcome`, `user_id`, `ip`, `risk`—zero secrets | **PASS** | `F02 &F-03.png` (Before), `Screenshot 2026-11-27 002934.png` (After) |
-| **T06** | Safe internal error handling (`500` disclosure check) | Unhandled server exceptions return generic `500` JSON with `correlation_id`, hiding stack traces | Raw error/counter details exposed in API responses | `GET /api/crash` returned `{"detail": "Internal processing error", "correlation_id": "req-e161ce"}` and logged `SAFE_HANDLED` | **PASS** | `Screenshot 2026-11-27 002751.png`, `Screenshot 2026-11-27 002934.png` |
-| **T07** | Repository secret & canary leak scan | Plaintext test password (`demo_password_123`) exists only inside `seed.py` hash setup, never in logs/UI/env leaks | Plaintext password returned directly in login response | Repo-wide search confirmed `demo_password_123` appears only once (`seed.py` PBKDF2 generator), zero leaks elsewhere | **PASS** | `Screenshot 2026-11-27 003041.png` |
-| **T08** | Authorized admin recovery & full end-to-end regression | Valid `ADMIN_TOKEN` restores `QUARANTINED` account to `ACTIVE`, allowing normal sign-in afterward | Unauthenticated reset endpoint exposed without key verification | Valid Admin key restored `synthetic_student_01` (`Reference: req-952cf8`, `RESTORED_ACTIVE`), followed by successful login | **PASS** | `Screenshot 2026-11-27 003506.png`, `Screenshot 2026-11-27 003600.png` |
+F-06 and F-07 were weaknesses in our own first remediation, found during verification and fixed before release.
 
----
+## 2. Test Matrix
 
-## 3. Evidence Index (`evidence/`)
+Expected results follow section 8 of the project guide. "Observed (first hardened build)" comes from the screenshots already taken. "Retest (final build)" is completed by running `python run_tests.py` on Floci with the final `main.py`.
 
-1. `F-01 & F-04.png` — Baseline `POST /api/login` accepting 7 failed attempts (`401`) without lockout.
-2. `F02 &F-03.png` — Baseline `POST /api/login` bypassing auth via `"success": true` and leaking `"plaintext_password"`.
-3. `F-05.png` — Baseline unauthenticated `POST /api/unquarantine/synthetic_student_01` returning `200 OK`.
-4. `Screenshot 2026-11-27 001646.png` — Hardened UI displaying red quarantine banner (`Reference: req-347dad`) after 5 failed attempts.
-5. `Screenshot 2026-11-27 001710.png` — Uvicorn terminal log showing progressive risk scores (`20` → `85`), `403 Forbidden`, and `ALERT_PUBLISH` (`alert_id=alrt-b8522e`).
-6. `Screenshot 2026-11-27 002751.png` — Safe `500` error response on `/api/crash` returning only generic detail and `correlation_id: req-e161ce`.
-7. `Screenshot 2026-11-27 002934.png` — Structured `audit.log.jsonl` proving append-only logging (`DENIED_BAD_KEY`, `RESTORED_ACTIVE`, `SAFE_HANDLED`) with zero password leakage.
-8. `Screenshot 2026-11-27 003041.png` — VS Code repo-wide search confirming `demo_password_123` is isolated to `seed.py`.
-9. `Screenshot 2026-11-27 003404.png` — Account isolation proof showing `synthetic_student_02` signed in normally while `synthetic_student_01` is quarantined.
-10. `Screenshot 2026-11-27 003506.png` — Security desk admin recovery restoring `synthetic_student_01` to `ACTIVE` (`Reference: req-952cf8`) with masked Admin key.
-11. `Screenshot 2026-11-27 003600.png` — Post-recovery login verification confirming `synthetic_student_01` signs in normally after admin reset.
+| ID | Test | Expected result after fix | Baseline result | Observed (first hardened build) | Retest (final build) | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| T01 | Normal login does not create an unnecessary alert | 200 ALLOW, failure counter reset to 0, no alert published | Wrong password plus `success:true` was accepted | Valid login `corr_id=req-2950b3`, `outcome=SUCCESS fails_reset=True` | ____ | `After/Screenshot 2026-11-27 003600.png`, `test_run_*.txt` |
+| T02 | Repeated failed logins trigger the documented rule | Attempts 1-4 return 401; attempt 5 returns 403 `QUARANTINED` (rule `BRUTE_FORCE_5_FAILED_LOGINS`, risk 85) | 7+ failures allowed | Risk 20, 40, 60, 80, then `QUARANTINED risk=85` (`req-347dad`) | ____ | `After/Screenshot 2026-11-27 001646.png`, `001710.png` |
+| T03 | Alert reaches subscriber and is traceable by ID | Alert with `alert_id` and `corr_id` arrives on `security-alerts-sub`; same IDs appear in the audit log | No alert existed | Publish logged: `alert_id=alrt-b8522e msg_id=3` | ____ | `After/Screenshot 2026-11-27 001710.png`, **NEW:** `After/T03_alert_listener.png` |
+| T04 | Containment affects only the synthetic demo account | `synthetic_student_01` blocked; `synthetic_student_02` unaffected; wrong admin key refused | Any caller could unlock any user | student_02 signed in normally while student_01 was quarantined | ____ | `After/Screenshot 2026-11-27 003404.png`, `test_run_*.txt` |
+| T05 | Logs support investigation without credentials | Each attempt has timestamp, `corr_id`, event, outcome; no password, token or key | Password present in output | 24 audit entries, fields `ts, corr_id, event, outcome, user_id, ip` | ____ | `After/Screenshot 2026-11-27 002934.png`, `test_run_*.txt` |
+| T06 | Controlled unexpected error | Generic 500 with `correlation_id`; no stack trace; `SAFE_HANDLED` logged | Not demonstrated | `GET /api/crash` returned generic detail, `req-e161ce` | ____ | `After/Screenshot 2026-11-27 002751.png` |
+| T07 | Inspect source, output and logs for sensitive data | No secret in responses, audit log, tracked source or git history | Plaintext password in response | `demo_password_123` found only in `seed.py` at the time of the search | ____ | **RE-TAKE** `After/Screenshot 2026-11-27 003041.png`, `test_run_*.txt` |
+| T08 | Repeat the complete test set | Identical results on repeat; admin recovery restores the account | Not applicable | Admin recovery `req-952cf8` then normal login | ____ | **NEW:** `After/test_run_<timestamp>.txt` (two full runs) |
 
----
+Note on T07: the synthetic password also appears in `vulnerable_main.py` (baseline file) and in this document. Both are synthetic demo values; the test checks that no *running component* leaks it.
 
-## 4. Documented Environment Limitations
+## 3. Evidence Index
 
-* **Local Emulator Scope:** All tests ran locally on `localhost:8000` using the **Floci GCP emulator** for Firestore and Pub/Sub rather than live cloud infrastructure.
-* **Cloud Logging Simulation:** Native GCP Cloud Logging was simulated via a local append-only JSONL adapter (`audit.log.jsonl`), preserving structured correlation IDs (`corr_id`) and schema parity for audit verification.
-* **Synthetic Identities Only:** Testing used synthetic accounts (`synthetic_student_01`, `synthetic_student_02`) and test credentials (`demo_password_123`) in compliance with project privacy rules.
+Baseline (`evidence/Before/`): `F-01 & F-04.png`, `F02 &F-03.png`, `F-05.png`.
+Hardened build (`evidence/After/`): `Screenshot 2026-11-27 001646.png` (quarantine banner), `001710.png` (log: risk 20 to 85, 403, `ALERT_PUBLISH`), `002751.png` (safe 500), `002934.png` (audit log), `003041.png` (secret search), `003404.png` (isolation), `003506.png` (admin recovery), `003600.png` (login after recovery).
+To add: `T03_alert_listener.png`, `test_run_<timestamp>.txt`, a fresh T07 search screenshot.
+
+## 4. Limitations and Residual Risks
+
+| Item | Rating | Note |
+| --- | --- | --- |
+| Lockout can be abused: anyone who knows a username can lock that account with 5 bad passwords | Medium | Standard trade-off. Mitigation in production: per-IP throttling, CAPTCHA, time-boxed lock, MFA recovery |
+| The 403 "quarantined" response after 5 attempts still reveals that a username exists (unknown names never reach 403) | Low | Inherent to explicit lockout messaging; F-04 removed the other enumeration signals (404, counters) |
+| Rule is 5 consecutive failures, no time window or decay | Low | Occasional typos accumulate; a windowed counter is the next step |
+| Unknown usernames and per-IP volume are not rate-limited | Low | Spraying across many usernames is not detected |
+| Concurrent failing requests can produce a duplicate alert | Informational | Atomic increment keeps the count correct |
+| Admin key is a single shared secret over plain HTTP on localhost | Low | Production would use identity-based admin access and TLS |
+| Cloud Run and Cloud Logging not used | Informational | App runs locally; `audit.log.jsonl` is a local stand-in. No claim about live GCP |
+| Floci is an emulator | Informational | Behaviour verified only against Floci |
